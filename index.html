@@ -2,946 +2,909 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0">
-<title>GPS Fallback v6</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>GPS Fallback v7</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <style>
 *{box-sizing:border-box}
-
 body{
-  margin:0;
-  padding:18px;
-  background:#0b0b0b;
-  color:#fff;
-  font-family:Arial,sans-serif;
-  font-size:20px
+ margin:0;padding:15px;
+ background:#0b0b0b;color:white;
+ font-family:Arial,sans-serif;font-size:19px
 }
-
-h1{
-  text-align:center;
-  font-size:36px;
-  margin:16px 0
-}
-
+h1{text-align:center;font-size:34px}
 .card{
-  background:#202020;
-  border-radius:22px;
-  padding:18px;
-  margin-bottom:16px
+ background:#202020;
+ border-radius:20px;
+ padding:16px;
+ margin-bottom:14px
 }
-
 .row{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  padding:8px 0
+ display:flex;
+ justify-content:space-between;
+ gap:10px;
+ padding:7px 0
 }
-
-.value{
-  font-weight:bold;
-  text-align:left
-}
-
+.value{font-weight:bold;text-align:left}
 button{
-  width:100%;
-  border:0;
-  border-radius:18px;
-  padding:18px 10px;
-  margin:7px 0;
-  font-size:22px;
-  font-weight:bold
+ width:100%;
+ border:0;
+ border-radius:17px;
+ padding:17px;
+ margin:6px 0;
+ font-size:21px;
+ font-weight:bold
 }
-
-input{
-  width:100%;
-  font-size:21px;
-  padding:14px;
-  border-radius:14px;
-  border:0;
-  margin:8px 0
-}
-
+#gpsBtn{background:#30d158}
+#motionBtn{background:#0a84ff;color:white}
+#calBtn{background:#ffd60a}
+#simulateBtn{background:#ff9f0a}
+#stopSimBtn{background:#bf5af2;color:white}
+#resetBtn{background:#555;color:white}
 #map{
-  height:360px;
-  border-radius:18px;
-  margin-top:12px
+ height:390px;
+ border-radius:18px;
+ margin-bottom:14px
 }
-
-#searchBtn{background:#64d2ff;color:#111}
-#startBtn{background:#bf5af2;color:#fff}
-#motionBtn{background:#0a84ff;color:#fff}
-#calibrateBtn{background:#ffd60a;color:#111}
-#fallbackBtn{background:#ff9f0a;color:#111}
-#stopBtn{background:#555;color:#fff}
-
-.small{
-  font-size:16px;
-  color:#bbb;
-  line-height:1.5
-}
-
-.warn{color:#ff9f0a}
-.ok{color:#30d158}
+.good{color:#30d158}
 .bad{color:#ff453a}
+.warn{color:#ff9f0a}
+.small{
+ font-size:15px;
+ color:#bbb;
+ line-height:1.5
+}
 </style>
 </head>
 
 <body>
 
-<h1>GPS Fallback v6</h1>
+<h1>GPS Fallback v7</h1>
 
 <div class="card">
 
-  <div class="row">
-    <span>الحالة</span>
-    <span id="status" class="value">جاهز</span>
-  </div>
+<div class="row">
+<span>وضع النظام</span>
+<span id="mode" class="value">جاهز</span>
+</div>
 
-  <div class="row">
-    <span>الحساسات</span>
-    <span id="motionState" class="value">متوقفة</span>
-  </div>
+<div class="row">
+<span>GPS</span>
+<span id="gpsState" class="value">متوقف</span>
+</div>
 
-  <div class="row">
-    <span>المعايرة</span>
-    <span id="calState" class="value">غير معاير</span>
-  </div>
+<div class="row">
+<span>دقة GPS</span>
+<span id="accuracy" class="value">—</span>
+</div>
 
-  <div class="row">
-    <span>الاتجاه</span>
-    <span id="headingText" class="value">—</span>
-  </div>
+<div class="row">
+<span>السرعة</span>
+<span id="speed" class="value">0 كم/س</span>
+</div>
 
-  <div class="row">
-    <span>السرعة التقديرية</span>
-    <span id="speedText" class="value">0 كم/س</span>
-  </div>
+<div class="row">
+<span>مصدر السرعة</span>
+<span id="speedSource" class="value">—</span>
+</div>
 
-  <div class="row">
-    <span>التسارع الأمامي</span>
-    <span id="accelText" class="value">0.00</span>
-  </div>
+<div class="row">
+<span>اتجاه الهاتف</span>
+<span id="heading" class="value">—</span>
+</div>
 
-  <div class="row">
-    <span>نقطة البداية</span>
-    <span id="startState" class="value">غير محددة</span>
-  </div>
+<div class="row">
+<span>الحساسات</span>
+<span id="sensorState" class="value">متوقفة</span>
+</div>
+
+<div class="row">
+<span>المعايرة</span>
+<span id="calState" class="value">غير معاير</span>
+</div>
+
+<div class="row">
+<span>التسارع الأمامي</span>
+<span id="accel" class="value">0.00</span>
+</div>
 
 </div>
 
-<div class="card">
+<div id="map"></div>
 
-  <b>تحديد نقطة البداية بدون GPS</b>
-
-  <input
-    id="addressInput"
-    type="text"
-    placeholder="اكتب اسم الشارع أو المنطقة"
-  >
-
-  <button id="searchBtn">
-    بحث عن العنوان
-  </button>
-
-  <div id="map"></div>
-
-  <p class="small">
-    يمكنك أيضًا الضغط مباشرة على الخريطة فوق موقع السيارة.
-  </p>
-
-  <button id="startBtn">
-    اعتماد نقطة البداية
-  </button>
-
-  <div class="row">
-    <span>العنوان</span>
-    <span id="addressText" class="value">—</span>
-  </div>
-
-  <div class="row">
-    <span>الإحداثيات</span>
-    <span id="startCoords" class="value">—</span>
-  </div>
-
-</div>
+<button id="gpsBtn">
+تشغيل GPS الحقيقي
+</button>
 
 <button id="motionBtn">
-  تشغيل حساسات الحركة
+تشغيل حساسات الهاتف
 </button>
 
-<button id="calibrateBtn">
-  معايرة الهاتف وهو ثابت
+<button id="calBtn">
+معايرة الهاتف وهو ثابت
 </button>
 
-<button id="fallbackBtn">
-  بدء Fallback
+<button id="simulateBtn">
+اختبار انقطاع GPS
 </button>
 
-<button id="stopBtn">
-  إنهاء المحاكاة
+<button id="stopSimBtn">
+إعادة GPS للاختبار
+</button>
+
+<button id="resetBtn">
+السيارة متوقفة — تصفير السرعة
 </button>
 
 <div class="card">
 
-  <div class="row">
-    <span>الموقع المستخدم</span>
-    <span id="usedCoords" class="value">—</span>
-  </div>
+<div class="row">
+<span>آخر GPS موثوق</span>
+<span id="lastTrusted">—</span>
+</div>
 
-  <div class="row">
-    <span>مدة Fallback</span>
-    <span id="fallbackTime" class="value">0 ثانية</span>
-  </div>
+<div class="row">
+<span>الموقع المستخدم</span>
+<span id="usedPosition">—</span>
+</div>
 
-  <div class="row">
-    <span>مصدر السرعة</span>
-    <span class="value">حساسات الهاتف</span>
-  </div>
+<div class="row">
+<span>مدة Fallback</span>
+<span id="fallbackTime">0 ثانية</span>
+</div>
 
-  <div class="row">
-    <span>ملاحظة</span>
-    <span id="note" class="value warn">تجريبي</span>
-  </div>
+<div class="row">
+<span>آخر سرعة GPS</span>
+<span id="lastGpsSpeed">—</span>
+</div>
 
 </div>
 
 <p class="small warn">
-هذه نسخة اختبارية.
-تقدير السرعة من حساسات المتصفح قد ينجرف مع الوقت.
+نسخة تجريبية لاختبار الفكرة.
+زر "اختبار انقطاع GPS" لا يعطل GPS في الهاتف فعليًا؛
+بل يمنع الخوارزمية مؤقتًا من استخدامه حتى نستطيع مقارنة النظام بأمان.
 لا تستخدم الهاتف أثناء القيادة.
 </p>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script
+src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
 
 <script>
 
-const $ = id => document.getElementById(id);
+const $ = id =>
+ document.getElementById(id);
 
-let map;
-let marker;
-let estimateMarker;
-
-let selectedLat = null;
-let selectedLon = null;
-
-let estimatedLat = null;
-let estimatedLon = null;
-
-let motionStarted = false;
-let calibrated = false;
-let fallbackRunning = false;
-
-let heading = 0;
-let forwardAccel = 0;
-let accelBias = 0;
-let speedMps = 0;
-
-let fallbackStart = 0;
-let lastLoop = 0;
-
-let calSamples = [];
-let stationaryCounter = 0;
-
-map = L.map("map").setView(
-  [50.4501,30.5234],
-  12
-);
+let map =
+ L.map("map").setView(
+  [50.4501,30.5234],12
+ );
 
 L.tileLayer(
-  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {
-    maxZoom:19,
-    attribution:"© OpenStreetMap"
-  }
+ "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+ {
+  maxZoom:19,
+  attribution:"© OpenStreetMap"
+ }
 ).addTo(map);
 
-map.on("click", async e => {
+let gpsMarker=null;
+let estimateMarker=null;
 
-  selectedLat = e.latlng.lat;
-  selectedLon = e.latlng.lng;
+let watchId=null;
 
-  setStartMarker(
-    selectedLat,
-    selectedLon
+let gpsLat=null;
+let gpsLon=null;
+let gpsAccuracy=null;
+
+let lastTrustedLat=null;
+let lastTrustedLon=null;
+
+let estimatedLat=null;
+let estimatedLon=null;
+
+let heading=0;
+
+let gpsSpeed=null;
+let lastTrustedSpeed=0;
+let estimatedSpeed=0;
+
+let forwardAccel=0;
+let accelBias=0;
+
+let sensorsRunning=false;
+let calibrated=false;
+
+let calibrationSamples=[];
+
+let fallback=false;
+let simulatedLoss=false;
+
+let fallbackStarted=0;
+let lastLoop=Date.now();
+
+const TRUSTED_ACCURACY = 25;
+
+function kmh(ms){
+ return Math.round(ms*3.6);
+}
+
+function updateUsedPosition(){
+
+ if(
+  estimatedLat===null ||
+  estimatedLon===null
+ ) return;
+
+ $("usedPosition").textContent =
+  estimatedLat.toFixed(6)
+  + ", "
+  + estimatedLon.toFixed(6);
+
+}
+
+function movePoint(
+ lat,lon,distance,bearing
+){
+
+ const R=6371000;
+
+ const b=
+  bearing*Math.PI/180;
+
+ const lat1=
+  lat*Math.PI/180;
+
+ const lon1=
+  lon*Math.PI/180;
+
+ const d=
+  distance/R;
+
+ const lat2=
+  Math.asin(
+   Math.sin(lat1)*Math.cos(d)
+   +
+   Math.cos(lat1)*Math.sin(d)*Math.cos(b)
   );
 
-  $("startCoords").textContent =
-    selectedLat.toFixed(6)
-    + ", "
-    + selectedLon.toFixed(6);
-
-  $("startState").textContent =
-    "مختارة";
-
-  await reverseGeocode(
-    selectedLat,
-    selectedLon
+ const lon2=
+  lon1+
+  Math.atan2(
+   Math.sin(b)*Math.sin(d)*Math.cos(lat1),
+   Math.cos(d)-
+   Math.sin(lat1)*Math.sin(lat2)
   );
 
-});
+ return[
+  lat2*180/Math.PI,
+  lon2*180/Math.PI
+ ];
 
-function setStartMarker(lat, lon){
+}
 
-  if(marker){
+function enterFallback(){
 
-    marker.setLatLng(
-      [lat,lon]
-    );
+ if(lastTrustedLat===null)
+  return;
+
+ if(!fallback){
+
+  fallback=true;
+
+  fallbackStarted=Date.now();
+
+  estimatedLat=lastTrustedLat;
+  estimatedLon=lastTrustedLon;
+
+  estimatedSpeed=
+   lastTrustedSpeed || 0;
+
+ }
+
+ $("mode").textContent =
+  "FALLBACK";
+
+ $("mode").className =
+  "value warn";
+
+}
+
+function returnToGps(){
+
+ fallback=false;
+
+ if(
+  gpsLat!==null &&
+  gpsLon!==null
+ ){
+
+  estimatedLat=gpsLat;
+  estimatedLon=gpsLon;
+
+ }
+
+ if(gpsSpeed!==null){
+
+  estimatedSpeed=gpsSpeed;
+
+ }
+
+ $("mode").textContent =
+  "GPS موثوق";
+
+ $("mode").className =
+  "value good";
+
+ $("fallbackTime").textContent =
+  "0 ثانية";
+
+}
+
+function processGPS(position){
+
+ const c=position.coords;
+
+ gpsLat=c.latitude;
+ gpsLon=c.longitude;
+
+ gpsAccuracy=c.accuracy;
+
+ $("accuracy").textContent =
+  Math.round(gpsAccuracy)+" متر";
+
+ if(c.speed!==null){
+
+  gpsSpeed=
+   Math.max(0,c.speed);
+
+ }else{
+
+  gpsSpeed=null;
+
+ }
+
+ if(!gpsMarker){
+
+  gpsMarker=
+   L.circleMarker(
+    [gpsLat,gpsLon],
+    {radius:9}
+   ).addTo(map);
+
+ }else{
+
+  gpsMarker.setLatLng(
+   [gpsLat,gpsLon]
+  );
+
+ }
+
+ const trusted =
+  gpsAccuracy <=
+  TRUSTED_ACCURACY;
+
+ if(trusted){
+
+  $("gpsState").textContent =
+   "موثوق ✓";
+
+  $("gpsState").className =
+   "value good";
+
+  lastTrustedLat=gpsLat;
+  lastTrustedLon=gpsLon;
+
+  if(gpsSpeed!==null){
+
+   lastTrustedSpeed=
+    gpsSpeed;
+
+   $("lastGpsSpeed").textContent =
+    kmh(gpsSpeed)
+    +" كم/س";
+
+  }
+
+  $("lastTrusted").textContent =
+   gpsLat.toFixed(6)
+   + ", "
+   + gpsLon.toFixed(6);
+
+  if(!simulatedLoss){
+
+   returnToGps();
 
   }else{
 
-    marker = L.marker(
-      [lat,lon]
+   enterFallback();
+
+  }
+
+ }else{
+
+  $("gpsState").textContent =
+   "ضعيف";
+
+  $("gpsState").className =
+   "value bad";
+
+  enterFallback();
+
+ }
+
+ if(!fallback){
+
+  estimatedLat=gpsLat;
+  estimatedLon=gpsLon;
+
+ }
+
+ if(
+  estimatedLat!==null
+ ){
+
+  if(!estimateMarker){
+
+   estimateMarker=
+    L.circleMarker(
+     [
+      estimatedLat,
+      estimatedLon
+     ],
+     {radius:7}
     ).addTo(map);
+
+  }else{
+
+   estimateMarker.setLatLng(
+    [
+     estimatedLat,
+     estimatedLon
+    ]
+   );
 
   }
 
   map.setView(
-    [lat,lon],
-    16
+   [
+    estimatedLat,
+    estimatedLon
+   ],
+   17
   );
 
-}
+ }
 
-async function reverseGeocode(lat, lon){
-
-  try{
-
-    const r = await fetch(
-      "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat="
-      + lat
-      + "&lon="
-      + lon
-    );
-
-    const d = await r.json();
-
-    $("addressText").textContent =
-      d.display_name
-      || "العنوان غير معروف";
-
-  }catch{
-
-    $("addressText").textContent =
-      "تعذر جلب اسم العنوان";
-
-  }
+ updateUsedPosition();
 
 }
 
-$("searchBtn").onclick =
-async function(){
-
-  const q =
-    $("addressInput")
-    .value
-    .trim();
-
-  if(!q){
-
-    alert(
-      "اكتب اسم الشارع أو المنطقة"
-    );
-
-    return;
-
-  }
-
-  $("status").textContent =
-    "جاري البحث...";
-
-  try{
-
-    const r = await fetch(
-      "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q="
-      + encodeURIComponent(q)
-    );
-
-    const a = await r.json();
-
-    if(!a.length){
-
-      alert(
-        "لم أجد هذا العنوان"
-      );
-
-      $("status").textContent =
-        "جاهز";
-
-      return;
-
-    }
-
-    selectedLat =
-      Number(a[0].lat);
-
-    selectedLon =
-      Number(a[0].lon);
-
-    setStartMarker(
-      selectedLat,
-      selectedLon
-    );
-
-    $("startCoords").textContent =
-      selectedLat.toFixed(6)
-      + ", "
-      + selectedLon.toFixed(6);
-
-    $("addressText").textContent =
-      a[0].display_name
-      || q;
-
-    $("startState").textContent =
-      "مختارة";
-
-    $("status").textContent =
-      "تم العثور على الموقع";
-
-  }catch{
-
-    $("status").textContent =
-      "خطأ في البحث";
-
-    alert(
-      "حدث خطأ أثناء البحث"
-    );
-
-  }
-
-};
-
-$("startBtn").onclick =
+$("gpsBtn").onclick =
 function(){
 
-  if(selectedLat === null){
+ if(!navigator.geolocation){
 
-    alert(
-      "حدد موقعك من الخريطة أو ابحث عن العنوان أولاً"
-    );
+  alert(
+   "GPS غير مدعوم في هذا المتصفح"
+  );
 
-    return;
+  return;
 
-  }
+ }
 
-  estimatedLat =
-    selectedLat;
+ $("gpsState").textContent =
+  "جاري البحث...";
 
-  estimatedLon =
-    selectedLon;
+ watchId=
+  navigator.geolocation.watchPosition(
+   processGPS,
 
-  $("startState").textContent =
-    "معتمدة ✓";
+   err=>{
 
-  $("usedCoords").textContent =
-    estimatedLat.toFixed(6)
-    + ", "
-    + estimatedLon.toFixed(6);
+    $("gpsState").textContent =
+     "غير متاح";
 
-  $("status").textContent =
-    "نقطة البداية جاهزة";
+    $("gpsState").className =
+     "value bad";
+
+    enterFallback();
+
+   },
+
+   {
+    enableHighAccuracy:true,
+    maximumAge:0,
+    timeout:15000
+   }
+  );
 
 };
 
 $("motionBtn").onclick =
 async function(){
 
-  try{
-
-    if(
-      typeof DeviceMotionEvent
-      !== "undefined"
-      &&
-      typeof DeviceMotionEvent.requestPermission
-      === "function"
-    ){
-
-      const r =
-        await DeviceMotionEvent
-        .requestPermission();
-
-      if(r !== "granted"){
-
-        alert(
-          "لم يتم السماح بحساسات الحركة"
-        );
-
-        return;
-
-      }
-
-    }
-
-    if(
-      typeof DeviceOrientationEvent
-      !== "undefined"
-      &&
-      typeof DeviceOrientationEvent.requestPermission
-      === "function"
-    ){
-
-      const r2 =
-        await DeviceOrientationEvent
-        .requestPermission();
-
-      if(r2 !== "granted"){
-
-        alert(
-          "لم يتم السماح بحساس الاتجاه"
-        );
-
-        return;
-
-      }
-
-    }
-
-    window.addEventListener(
-      "deviceorientation",
-      e => {
-
-        if(
-          typeof e.webkitCompassHeading
-          === "number"
-        ){
-
-          heading =
-            e.webkitCompassHeading;
-
-        }else if(
-          e.alpha !== null
-        ){
-
-          heading =
-            360 - e.alpha;
-
-        }
-
-        heading =
-          (heading + 360) % 360;
-
-        $("headingText").textContent =
-          Math.round(heading)
-          + "°";
-
-      },
-      true
-    );
-
-    window.addEventListener(
-      "devicemotion",
-      e => {
-
-        const a =
-          e.acceleration;
-
-        if(!a) return;
-
-        const raw =
-          Number(
-            a.y || 0
-          );
-
-        forwardAccel =
-          raw - accelBias;
-
-        if(
-          Math.abs(
-            forwardAccel
-          ) < 0.08
-        ){
-
-          forwardAccel = 0;
-
-        }
-
-        $("accelText").textContent =
-          forwardAccel
-          .toFixed(2);
-
-        if(
-          calSamples.length > 0
-        ){
-
-          calSamples.push(raw);
-
-        }
-
-      },
-      true
-    );
-
-    motionStarted = true;
-
-    $("motionState").textContent =
-      "تعمل ✓";
-
-    $("status").textContent =
-      "الحساسات تعمل";
-
-  }catch{
-
-    alert(
-      "تعذر تشغيل الحساسات"
-    );
-
-  }
-
-};
-
-$("calibrateBtn").onclick =
-function(){
-
-  if(!motionStarted){
-
-    alert(
-      "شغّل حساسات الحركة أولاً"
-    );
-
-    return;
-
-  }
-
-  $("calState").textContent =
-    "جاري المعايرة...";
-
-  $("status").textContent =
-    "اترك الهاتف ثابتًا";
-
-  calSamples = [0];
-
-  setTimeout(
-    () => {
-
-      const vals =
-        calSamples.slice(1);
-
-      if(
-        vals.length < 3
-      ){
-
-        calSamples = [];
-
-        $("calState").textContent =
-          "فشلت";
-
-        $("status").textContent =
-          "أعد المعايرة";
-
-        return;
-
-      }
-
-      accelBias =
-        vals.reduce(
-          (s,v)=>s+v,
-          0
-        )
-        /
-        vals.length;
-
-      calSamples = [];
-
-      calibrated = true;
-
-      speedMps = 0;
-
-      stationaryCounter = 0;
-
-      $("calState").textContent =
-        "تمت ✓";
-
-      $("status").textContent =
-        "المعايرة جاهزة";
-
-    },
-    2500
-  );
-
-};
-
-$("fallbackBtn").onclick =
-function(){
+ try{
 
   if(
-    estimatedLat === null
+   typeof DeviceMotionEvent
+   !=="undefined"
+   &&
+   typeof DeviceMotionEvent
+    .requestPermission
+   ==="function"
   ){
 
-    alert(
-      "اعتمد نقطة البداية أولاً"
-    );
+   const p=
+    await DeviceMotionEvent
+     .requestPermission();
 
+   if(p!=="granted")
     return;
 
   }
 
-  if(!motionStarted){
+  if(
+   typeof DeviceOrientationEvent
+   !=="undefined"
+   &&
+   typeof DeviceOrientationEvent
+    .requestPermission
+   ==="function"
+  ){
 
-    alert(
-      "شغّل حساسات الحركة أولاً"
-    );
+   const p=
+    await DeviceOrientationEvent
+     .requestPermission();
 
+   if(p!=="granted")
     return;
 
   }
 
-  if(!calibrated){
+  window.addEventListener(
+   "deviceorientation",
+   e=>{
 
-    alert(
-      "اعمل معايرة للهاتف وهو ثابت أولاً"
-    );
+    if(
+     typeof e.webkitCompassHeading
+     ==="number"
+    ){
 
-    return;
+     heading=
+      e.webkitCompassHeading;
 
-  }
+    }else if(
+     e.alpha!==null
+    ){
 
-  speedMps = 0;
+     heading=
+      360-e.alpha;
 
-  fallbackRunning = true;
+    }
 
-  fallbackStart =
-    Date.now();
+    heading=
+     (heading+360)%360;
 
-  lastLoop =
-    Date.now();
+    $("heading").textContent =
+     Math.round(heading)+"°";
 
-  $("status").textContent =
-    "Fallback يعمل";
+   },
+   true
+  );
 
-  $("note").textContent =
-    "تقدير بالحساسات";
+  window.addEventListener(
+   "devicemotion",
+   e=>{
+
+    if(!e.acceleration)
+     return;
+
+    const raw=
+     Number(
+      e.acceleration.y||0
+     );
+
+    if(
+     calibrationSamples
+      .length>0
+    ){
+
+     calibrationSamples
+      .push(raw);
+
+    }
+
+    forwardAccel=
+     raw-accelBias;
+
+    if(
+     Math.abs(
+      forwardAccel
+     )<0.08
+    ){
+
+     forwardAccel=0;
+
+    }
+
+    $("accel").textContent =
+     forwardAccel.toFixed(2);
+
+   },
+   true
+  );
+
+  sensorsRunning=true;
+
+  $("sensorState").textContent =
+   "تعمل ✓";
+
+  $("sensorState").className =
+   "value good";
+
+ }catch(e){
+
+  alert(
+   "تعذر تشغيل الحساسات"
+  );
+
+ }
 
 };
 
-$("stopBtn").onclick =
+$("calBtn").onclick =
 function(){
 
-  fallbackRunning = false;
+ if(!sensorsRunning){
 
-  speedMps = 0;
+  alert(
+   "شغّل الحساسات أولاً"
+  );
 
-  $("speedText").textContent =
-    "0 كم/س";
+  return;
 
-  $("status").textContent =
-    "تم إنهاء المحاكاة";
+ }
+
+ $("calState").textContent =
+  "جاري المعايرة...";
+
+ calibrationSamples=[0];
+
+ setTimeout(
+  ()=>{
+
+   const vals=
+    calibrationSamples
+     .slice(1);
+
+   calibrationSamples=[];
+
+   if(vals.length<3){
+
+    $("calState").textContent =
+     "فشلت";
+
+    return;
+
+   }
+
+   accelBias=
+    vals.reduce(
+     (a,b)=>a+b,0
+    )/vals.length;
+
+   calibrated=true;
+
+   $("calState").textContent =
+    "تمت ✓";
+
+   $("calState").className =
+    "value good";
+
+  },
+  2500
+ );
 
 };
 
-function movePoint(
-  lat,
-  lon,
-  distanceMeters,
-  bearingDegrees
-){
+$("simulateBtn").onclick =
+function(){
 
-  const R = 6371000;
+ if(
+  lastTrustedLat===null
+ ){
 
-  const b =
-    bearingDegrees
-    * Math.PI
-    / 180;
+  alert(
+   "نحتاج GPS موثوق أولاً قبل اختبار الانقطاع"
+  );
 
-  const lat1 =
-    lat
-    * Math.PI
-    / 180;
+  return;
 
-  const lon1 =
-    lon
-    * Math.PI
-    / 180;
+ }
 
-  const d =
-    distanceMeters
-    / R;
+ simulatedLoss=true;
 
-  const lat2 =
-    Math.asin(
-      Math.sin(lat1)
-      * Math.cos(d)
-      +
-      Math.cos(lat1)
-      * Math.sin(d)
-      * Math.cos(b)
-    );
+ enterFallback();
 
-  const lon2 =
-    lon1
-    +
-    Math.atan2(
-      Math.sin(b)
-      * Math.sin(d)
-      * Math.cos(lat1),
-      Math.cos(d)
-      -
-      Math.sin(lat1)
-      * Math.sin(lat2)
-    );
+};
 
-  return [
-    lat2
-    * 180
-    / Math.PI,
+$("stopSimBtn").onclick =
+function(){
 
-    lon2
-    * 180
-    / Math.PI
-  ];
+ simulatedLoss=false;
 
-}
+ if(
+  gpsAccuracy!==null &&
+  gpsAccuracy<=
+   TRUSTED_ACCURACY
+ ){
+
+  returnToGps();
+
+ }
+
+};
+
+$("resetBtn").onclick =
+function(){
+
+ estimatedSpeed=0;
+ lastTrustedSpeed=0;
+
+ $("speed").textContent =
+  "0 كم/س";
+
+ $("speedSource").textContent =
+  "تصفير يدوي";
+
+};
 
 setInterval(
-  () => {
+ ()=>{
 
-    if(
-      !fallbackRunning
-    ) return;
+  const now=Date.now();
 
-    const now =
-      Date.now();
+  const dt=
+   Math.min(
+    (now-lastLoop)/1000,
+    1
+   );
 
-    const dt =
-      Math.min(
-        (now-lastLoop)
-        / 1000,
-        1.0
-      );
+  lastLoop=now;
 
-    lastLoop =
-      now;
+  if(!fallback){
 
-    let a =
-      Math.max(
-        -2.5,
-        Math.min(
-          2.5,
-          forwardAccel
-        )
-      );
+   if(gpsSpeed!==null){
 
-    speedMps +=
-      a * dt;
+    estimatedSpeed=
+     gpsSpeed;
 
-    if(
-      speedMps < 0
-    ){
+    $("speed").textContent =
+     kmh(gpsSpeed)
+     +" كم/س";
 
-      speedMps = 0;
+    $("speedSource").textContent =
+     "GPS";
 
-    }
+   }
 
-    if(
-      Math.abs(a) < 0.10
-    ){
+   return;
 
-      stationaryCounter += dt;
+  }
 
-    }else{
+  if(
+   calibrated &&
+   sensorsRunning
+  ){
 
-      stationaryCounter = 0;
-
-    }
-
-    if(
-      stationaryCounter > 2.5
-      &&
-      speedMps < 1.5
-    ){
-
-      speedMps = 0;
-
-    }
-
-    speedMps =
-      Math.min(
-        speedMps,
-        130 / 3.6
-      );
-
-    const distance =
-      speedMps * dt;
-
-    if(
-      distance > 0
-    ){
-
-      const p =
-        movePoint(
-          estimatedLat,
-          estimatedLon,
-          distance,
-          heading
-        );
-
-      estimatedLat =
-        p[0];
-
-      estimatedLon =
-        p[1];
-
-    }
-
-    $("speedText").textContent =
-      Math.round(
-        speedMps * 3.6
-      )
-      + " كم/س";
-
-    $("usedCoords").textContent =
-      estimatedLat.toFixed(6)
-      + ", "
-      + estimatedLon.toFixed(6);
-
-    if(!estimateMarker){
-
-      estimateMarker =
-        L.circleMarker(
-          [
-            estimatedLat,
-            estimatedLon
-          ],
-          {
-            radius:9
-          }
-        ).addTo(map);
-
-    }else{
-
-      estimateMarker.setLatLng(
-        [
-          estimatedLat,
-          estimatedLon
-        ]
-      );
-
-    }
-
-    map.panTo(
-      [
-        estimatedLat,
-        estimatedLon
-      ],
-      {
-        animate:true
-      }
+   let a=
+    Math.max(
+     -3,
+     Math.min(
+      3,
+      forwardAccel
+     )
     );
 
-    $("fallbackTime").textContent =
-      Math.round(
-        (
-          now
-          -
-          fallbackStart
-        )
-        / 1000
-      )
-      + " ثانية";
+   estimatedSpeed +=
+    a*dt;
 
-  },
-  500
+   if(estimatedSpeed<0)
+    estimatedSpeed=0;
+
+   if(
+    estimatedSpeed>
+    160/3.6
+   ){
+
+    estimatedSpeed=
+     160/3.6;
+
+   }
+
+   $("speedSource").textContent =
+    "حساسات الهاتف";
+
+  }else{
+
+   $("speedSource").textContent =
+    "آخر سرعة محفوظة";
+
+  }
+
+  $("speed").textContent =
+   kmh(estimatedSpeed)
+   +" كم/س";
+
+  if(
+   estimatedLat===null
+  ) return;
+
+  const distance=
+   estimatedSpeed*dt;
+
+  if(distance>0){
+
+   const p=
+    movePoint(
+     estimatedLat,
+     estimatedLon,
+     distance,
+     heading
+    );
+
+   estimatedLat=p[0];
+   estimatedLon=p[1];
+
+  }
+
+  if(!estimateMarker){
+
+   estimateMarker=
+    L.circleMarker(
+     [
+      estimatedLat,
+      estimatedLon
+     ],
+     {radius:7}
+    ).addTo(map);
+
+  }else{
+
+   estimateMarker.setLatLng(
+    [
+     estimatedLat,
+     estimatedLon
+    ]
+   );
+
+  }
+
+  map.panTo(
+   [
+    estimatedLat,
+    estimatedLon
+   ]
+  );
+
+  updateUsedPosition();
+
+  $("fallbackTime").textContent =
+   Math.round(
+    (
+     now-
+     fallbackStarted
+    )/1000
+   )
+   +" ثانية";
+
+ },
+ 500
 );
 
 </script>
