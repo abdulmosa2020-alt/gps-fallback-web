@@ -2,8 +2,8 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>GPS Fallback Test</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GPS Fallback</title>
 
 <style>
 body{
@@ -42,7 +42,7 @@ button{
 #start{background:#30d158}
 #motion{background:#0a84ff;color:white}
 #simulate{background:#ff9f0a;color:#111}
-#reset{background:#444;color:white}
+#reset{background:#555;color:white}
 
 #status{color:#ffd60a}
 .small{font-size:14px;color:#bbb}
@@ -115,8 +115,8 @@ button{
 
 const $ = id => document.getElementById(id);
 
-let watchId = null;
 let gpsStarted = false;
+let gpsFix = false;
 let motionStarted = false;
 let simulateLoss = false;
 
@@ -129,296 +129,392 @@ let estimatedLon = null;
 let currentSpeed = 0;
 let currentHeading = 0;
 
-let lastGPS = null;
 let lastEstimateTime = null;
 let fallbackStart = null;
-
 let forwardAcceleration = 0;
 
 function distanceMeters(lat1,lon1,lat2,lon2){
- const R=6371000;
- const p1=lat1*Math.PI/180;
- const p2=lat2*Math.PI/180;
- const dp=(lat2-lat1)*Math.PI/180;
- const dl=(lon2-lon1)*Math.PI/180;
 
- const a=
- Math.sin(dp/2)**2+
- Math.cos(p1)*Math.cos(p2)*
- Math.sin(dl/2)**2;
+  const R = 6371000;
 
- return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  const p1 = lat1*Math.PI/180;
+  const p2 = lat2*Math.PI/180;
+
+  const dp = (lat2-lat1)*Math.PI/180;
+  const dl = (lon2-lon1)*Math.PI/180;
+
+  const a =
+    Math.sin(dp/2)**2 +
+    Math.cos(p1)*Math.cos(p2)*
+    Math.sin(dl/2)**2;
+
+  return R*2*Math.atan2(
+    Math.sqrt(a),
+    Math.sqrt(1-a)
+  );
 }
 
 function movePoint(lat,lon,distance,heading){
- const R=6371000;
- const brng=heading*Math.PI/180;
- const p1=lat*Math.PI/180;
- const l1=lon*Math.PI/180;
- const d=distance/R;
 
- const p2=Math.asin(
-   Math.sin(p1)*Math.cos(d)+
-   Math.cos(p1)*Math.sin(d)*Math.cos(brng)
- );
+  const R = 6371000;
+  const brng = heading*Math.PI/180;
 
- const l2=l1+Math.atan2(
-   Math.sin(brng)*Math.sin(d)*Math.cos(p1),
-   Math.cos(d)-Math.sin(p1)*Math.sin(p2)
- );
+  const p1 = lat*Math.PI/180;
+  const l1 = lon*Math.PI/180;
 
- return [
-   p2*180/Math.PI,
-   l2*180/Math.PI
- ];
+  const d = distance/R;
+
+  const p2 = Math.asin(
+    Math.sin(p1)*Math.cos(d) +
+    Math.cos(p1)*Math.sin(d)*Math.cos(brng)
+  );
+
+  const l2 = l1 + Math.atan2(
+    Math.sin(brng)*Math.sin(d)*Math.cos(p1),
+    Math.cos(d)-Math.sin(p1)*Math.sin(p2)
+  );
+
+  return [
+    p2*180/Math.PI,
+    l2*180/Math.PI
+  ];
 }
 
-$("start").onclick=function(){
 
- if(gpsStarted) return;
+/* تشغيل GPS */
 
- if(!navigator.geolocation){
-   $("status").textContent="GPS غير مدعوم";
-   return;
- }
+$("start").onclick = function(){
 
- gpsStarted=true;
- $("gpsState").textContent="يعمل ✓";
- $("status").textContent="جاري البحث عن GPS...";
+  if(gpsStarted) return;
 
- watchId=navigator.geolocation.watchPosition(
+  if(!navigator.geolocation){
+    $("status").textContent = "GPS غير مدعوم";
+    return;
+  }
 
- position=>{
+  gpsStarted = true;
+  gpsFix = false;
 
-   const c=position.coords;
+  $("gpsState").textContent = "جاري البحث...";
+  $("status").textContent = "جاري البحث عن GPS...";
+  $("status").style.color = "#ffd60a";
 
-   realLat=c.latitude;
-   realLon=c.longitude;
+  navigator.geolocation.watchPosition(
 
-   $("realCoords").textContent=
-   realLat.toFixed(6)+", "+realLon.toFixed(6);
+    position => {
 
-   $("accuracy").textContent=
-   Math.round(c.accuracy)+" متر";
+      const c = position.coords;
 
-   if(c.speed!==null && c.speed>=0){
-     currentSpeed=c.speed;
-     $("speed").textContent=
-     Math.round(c.speed*3.6)+" كم/س";
-   }
+      gpsFix = true;
 
-   if(c.heading!==null && !isNaN(c.heading)){
-     currentHeading=c.heading;
-     $("heading").textContent=
-     Math.round(c.heading)+"°";
-   }
+      $("gpsState").textContent = "يعمل ✓";
 
-   if(!simulateLoss){
+      realLat = c.latitude;
+      realLon = c.longitude;
 
-     estimatedLat=realLat;
-     estimatedLon=realLon;
+      $("realCoords").textContent =
+        realLat.toFixed(6) + ", " +
+        realLon.toFixed(6);
 
-     lastGPS=Date.now();
-     lastEstimateTime=Date.now();
+      $("accuracy").textContent =
+        Math.round(c.accuracy) + " متر";
 
-     $("usedCoords").textContent=
-     estimatedLat.toFixed(6)+", "+
-     estimatedLon.toFixed(6);
+      if(c.speed !== null && c.speed >= 0){
 
-     if(c.accuracy<=30){
-       $("status").textContent="GPS موثوق";
-       $("status").style.color="#30d158";
+        currentSpeed = c.speed;
 
-       $("confidence").textContent=
-       Math.max(70,Math.round(100-c.accuracy))+"%";
+        $("speed").textContent =
+          (c.speed*3.6).toFixed(1) + " كم/س";
+      }
 
-     }else{
-       $("status").textContent="GPS ضعيف";
-       $("status").style.color="#ff9f0a";
-       $("confidence").textContent="50%";
-     }
-   }
+      if(c.heading !== null && !isNaN(c.heading)){
 
- },
+        currentHeading = c.heading;
 
- error=>{
-   $("status").textContent="تعذر الوصول إلى GPS";
-   $("status").style.color="#ff453a";
- },
+        $("heading").textContent =
+          Math.round(c.heading) + "°";
+      }
 
- {
-   enableHighAccuracy:true,
-   maximumAge:0,
-   timeout:10000
- });
+      if(!simulateLoss){
 
+        estimatedLat = realLat;
+        estimatedLon = realLon;
+
+        lastEstimateTime = Date.now();
+
+        $("usedCoords").textContent =
+          estimatedLat.toFixed(6) + ", " +
+          estimatedLon.toFixed(6);
+
+        if(c.accuracy <= 30){
+
+          $("status").textContent = "GPS موثوق";
+          $("status").style.color = "#30d158";
+
+          $("confidence").textContent =
+            Math.max(
+              70,
+              Math.round(100-c.accuracy)
+            ) + "%";
+
+        } else {
+
+          $("status").textContent = "GPS ضعيف";
+          $("status").style.color = "#ff9f0a";
+          $("confidence").textContent = "50%";
+        }
+      }
+    },
+
+    error => {
+
+      gpsStarted = false;
+      gpsFix = false;
+
+      $("gpsState").textContent = "متوقف";
+
+      $("status").textContent =
+        "تعذر الوصول إلى GPS";
+
+      $("status").style.color = "#ff453a";
+
+      $("start").textContent =
+        "إعادة تشغيل GPS";
+    },
+
+    {
+      enableHighAccuracy:true,
+      maximumAge:0,
+      timeout:15000
+    }
+  );
 };
 
-$("motion").onclick=async function(){
 
- if(motionStarted) return;
+/* حساسات الحركة */
 
- try{
+$("motion").onclick = async function(){
 
-   if(typeof DeviceMotionEvent!=="undefined" &&
-      typeof DeviceMotionEvent.requestPermission==="function"){
+  if(motionStarted) return;
 
-     const permission=
-       await DeviceMotionEvent.requestPermission();
+  try{
 
-     if(permission!=="granted"){
-       alert("لم يتم السماح بالحساسات");
-       return;
-     }
-   }
+    if(
+      typeof DeviceMotionEvent !== "undefined" &&
+      typeof DeviceMotionEvent.requestPermission === "function"
+    ){
 
-   motionStarted=true;
+      const permission =
+        await DeviceMotionEvent.requestPermission();
 
-   $("motionState").textContent="تعمل ✓";
-   $("motion").textContent="حساسات الحركة تعمل ✓";
+      if(permission !== "granted"){
 
-   window.addEventListener("devicemotion",e=>{
+        alert("لم يتم السماح بالحساسات");
+        return;
+      }
+    }
 
-     if(e.acceleration && e.acceleration.y!==null){
-       forwardAcceleration=e.acceleration.y;
-     }
+    motionStarted = true;
 
-   });
+    $("motionState").textContent = "تعمل ✓";
 
-   window.addEventListener("deviceorientation",e=>{
+    $("motion").textContent =
+      "حساسات الحركة تعمل ✓";
 
-     if(typeof e.webkitCompassHeading==="number"){
-       currentHeading=e.webkitCompassHeading;
-       $("heading").textContent=
-       Math.round(currentHeading)+"°";
-     }
+    window.addEventListener(
+      "devicemotion",
+      e => {
 
-   });
+        if(
+          e.acceleration &&
+          e.acceleration.y !== null
+        ){
+          forwardAcceleration =
+            e.acceleration.y;
+        }
+      }
+    );
 
- }catch(e){
-   alert("تعذر تشغيل حساسات الحركة");
- }
+    window.addEventListener(
+      "deviceorientation",
+      e => {
 
+        if(
+          typeof e.webkitCompassHeading === "number"
+        ){
+
+          currentHeading =
+            e.webkitCompassHeading;
+
+          $("heading").textContent =
+            Math.round(currentHeading) + "°";
+        }
+      }
+    );
+
+  }catch(e){
+
+    alert("تعذر تشغيل حساسات الحركة");
+  }
 };
 
-$("simulate").onclick=function(){
 
- if(!gpsStarted || realLat===null){
-   alert("شغّل GPS أولاً");
-   return;
- }
+/* محاكاة فقدان GPS */
 
- if(!motionStarted){
-   alert("شغّل حساسات الحركة أولاً");
-   return;
- }
+$("simulate").onclick = function(){
 
- simulateLoss=true;
+  if(
+    !gpsStarted ||
+    !gpsFix ||
+    realLat === null
+  ){
 
- estimatedLat=realLat;
- estimatedLon=realLon;
+    alert(
+      "شغّل GPS وانتظر تحديد الموقع أولاً"
+    );
 
- fallbackStart=Date.now();
- lastEstimateTime=Date.now();
+    return;
+  }
 
- $("status").textContent="Fallback تجريبي";
- $("status").style.color="#ff453a";
+  if(!motionStarted){
 
+    alert(
+      "شغّل حساسات الحركة أولاً"
+    );
+
+    return;
+  }
+
+  simulateLoss = true;
+
+  estimatedLat = realLat;
+  estimatedLon = realLon;
+
+  fallbackStart = Date.now();
+  lastEstimateTime = Date.now();
+
+  $("status").textContent =
+    "Fallback تجريبي";
+
+  $("status").style.color =
+    "#ff453a";
 };
 
-$("reset").onclick=function(){
 
- simulateLoss=false;
- fallbackStart=null;
+/* إنهاء المحاكاة */
 
- if(realLat!==null){
-   estimatedLat=realLat;
-   estimatedLon=realLon;
- }
+$("reset").onclick = function(){
 
- $("status").textContent="GPS مباشر";
- $("status").style.color="#30d158";
+  simulateLoss = false;
+  fallbackStart = null;
 
- $("fallbackTime").textContent="0 ثانية";
- $("errorDistance").textContent="—";
+  if(realLat !== null){
+
+    estimatedLat = realLat;
+    estimatedLon = realLon;
+
+    $("usedCoords").textContent =
+      estimatedLat.toFixed(6) + ", " +
+      estimatedLon.toFixed(6);
+  }
+
+  $("status").textContent =
+    gpsFix ? "GPS مباشر" : "جاهز";
+
+  $("status").style.color =
+    gpsFix ? "#30d158" : "#ffd60a";
+
+  $("fallbackTime").textContent =
+    "0 ثانية";
+
+  $("errorDistance").textContent =
+    "—";
 };
 
-setInterval(()=>{
 
- if(!simulateLoss ||
-    estimatedLat===null ||
-    realLat===null) return;
+/* حساب الموقع أثناء Fallback */
 
- const now=Date.now();
+setInterval(() => {
 
- const dt=Math.min(
-   (now-lastEstimateTime)/1000,
-   1.5
- );
+  if(
+    !simulateLoss ||
+    estimatedLat === null ||
+    realLat === null
+  ) return;
 
- lastEstimateTime=now;
+  const now = Date.now();
 
- /*
-   نموذج أولي فقط:
-   نستخدم سرعة GPS الأخيرة +
-   تسارع محدود من حساس الهاتف.
- */
+  const dt = Math.min(
+    (now-lastEstimateTime)/1000,
+    1.5
+  );
 
- const accel=Math.max(
-   -2,
-   Math.min(2,forwardAcceleration)
- );
+  lastEstimateTime = now;
 
- currentSpeed+=accel*dt;
+  const accel =
+    Math.max(
+      -2,
+      Math.min(
+        2,
+        forwardAcceleration
+      )
+    );
 
- if(currentSpeed<0)
-   currentSpeed=0;
+  currentSpeed += accel*dt;
 
- /*
-   منع انجراف سرعة غير واقعية
-   أثناء الوقوف في النموذج الأولي.
- */
+  if(currentSpeed < 0)
+    currentSpeed = 0;
 
- if(currentSpeed<0.35)
-   currentSpeed=0;
+  if(currentSpeed < 0.35)
+    currentSpeed = 0;
 
- const distance=currentSpeed*dt;
+  const distance =
+    currentSpeed*dt;
 
- const moved=movePoint(
-   estimatedLat,
-   estimatedLon,
-   distance,
-   currentHeading
- );
+  const moved =
+    movePoint(
+      estimatedLat,
+      estimatedLon,
+      distance,
+      currentHeading
+    );
 
- estimatedLat=moved[0];
- estimatedLon=moved[1];
+  estimatedLat = moved[0];
+  estimatedLon = moved[1];
 
- $("usedCoords").textContent=
- estimatedLat.toFixed(6)+", "+
- estimatedLon.toFixed(6);
+  $("usedCoords").textContent =
+    estimatedLat.toFixed(6) + ", " +
+    estimatedLon.toFixed(6);
 
- const error=distanceMeters(
-   estimatedLat,
-   estimatedLon,
-   realLat,
-   realLon
- );
+  const error =
+    distanceMeters(
+      estimatedLat,
+      estimatedLon,
+      realLat,
+      realLon
+    );
 
- $("errorDistance").textContent=
- Math.round(error)+" متر";
+  $("errorDistance").textContent =
+    Math.round(error) + " متر";
 
- const seconds=
- Math.round((now-fallbackStart)/1000);
+  const seconds =
+    Math.round(
+      (now-fallbackStart)/1000
+    );
 
- $("fallbackTime").textContent=
- seconds+" ثانية";
+  $("fallbackTime").textContent =
+    seconds + " ثانية";
 
- const confidence=
- Math.max(5,100-Math.round(seconds*0.8)-Math.round(error/4));
+  const confidence =
+    Math.max(
+      5,
+      100 -
+      Math.round(seconds*0.8) -
+      Math.round(error/4)
+    );
 
- $("confidence").textContent=
- confidence+"%";
+  $("confidence").textContent =
+    confidence + "%";
 
 },500);
 
