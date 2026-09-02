@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>GPS Fallback v2</title>
+<title>GPS Fallback v3</title>
 
 <style>
 body{
@@ -90,6 +90,11 @@ button{
 <strong id="confidence">—</strong>
 </div>
 
+<div class="row">
+<span>آخر نقطة موثوقة</span>
+<strong id="trustedState">لا توجد</strong>
+</div>
+
 </div>
 
 <button id="start">تشغيل GPS</button>
@@ -98,8 +103,12 @@ button{
 <button id="reset">إنهاء المحاكاة</button>
 
 <div class="card">
+
 <strong>الموقع الحقيقي GPS</strong>
 <p id="realCoords" class="small">—</p>
+
+<strong>آخر موقع موثوق</strong>
+<p id="trustedCoords" class="small">—</p>
 
 <strong>الموقع المستخدم</strong>
 <p id="usedCoords" class="small">—</p>
@@ -109,6 +118,7 @@ button{
 
 <strong>مدة Fallback</strong>
 <p id="fallbackTime">0 ثانية</p>
+
 </div>
 
 <script>
@@ -122,6 +132,10 @@ let simulateLoss = false;
 
 let realLat = null;
 let realLon = null;
+
+let trustedLat = null;
+let trustedLon = null;
+let trustedTime = null;
 
 let estimatedLat = null;
 let estimatedLon = null;
@@ -235,32 +249,50 @@ $("start").onclick = function(){
           Math.round(c.heading) + "°";
       }
 
-      if(!simulateLoss){
 
-        estimatedLat = realLat;
-        estimatedLon = realLon;
+      /* حفظ آخر نقطة موثوقة */
 
-        lastEstimateTime = Date.now();
+      if(c.accuracy <= 25){
 
-        $("usedCoords").textContent =
-          estimatedLat.toFixed(6) + ", " +
-          estimatedLon.toFixed(6);
+        trustedLat = realLat;
+        trustedLon = realLon;
+        trustedTime = Date.now();
 
-        if(c.accuracy <= 30){
+        $("trustedState").textContent =
+          "محفوظة ✓";
 
-          $("status").textContent = "GPS موثوق";
-          $("status").style.color = "#30d158";
+        $("trustedCoords").textContent =
+          trustedLat.toFixed(6) + ", " +
+          trustedLon.toFixed(6);
 
-          $("confidence").textContent =
-            Math.max(
-              70,
-              Math.round(100-c.accuracy)
-            ) + "%";
+        if(!simulateLoss){
 
-        } else {
+          estimatedLat = trustedLat;
+          estimatedLon = trustedLon;
+
+          lastEstimateTime = Date.now();
+
+          $("usedCoords").textContent =
+            estimatedLat.toFixed(6) + ", " +
+            estimatedLon.toFixed(6);
+        }
+
+        $("status").textContent = "GPS موثوق";
+        $("status").style.color = "#30d158";
+
+        $("confidence").textContent =
+          Math.max(
+            75,
+            Math.round(100-c.accuracy)
+          ) + "%";
+
+      } else {
+
+        if(!simulateLoss){
 
           $("status").textContent = "GPS ضعيف";
           $("status").style.color = "#ff9f0a";
+
           $("confidence").textContent = "50%";
         }
       }
@@ -363,19 +395,6 @@ $("motion").onclick = async function(){
 
 $("simulate").onclick = function(){
 
-  if(
-    !gpsStarted ||
-    !gpsFix ||
-    realLat === null
-  ){
-
-    alert(
-      "شغّل GPS وانتظر تحديد الموقع أولاً"
-    );
-
-    return;
-  }
-
   if(!motionStarted){
 
     alert(
@@ -385,13 +404,29 @@ $("simulate").onclick = function(){
     return;
   }
 
+  if(
+    trustedLat === null ||
+    trustedLon === null
+  ){
+
+    alert(
+      "لا توجد نقطة GPS موثوقة بعد. انتظر حتى تصبح الدقة 25 متر أو أفضل."
+    );
+
+    return;
+  }
+
   simulateLoss = true;
 
-  estimatedLat = realLat;
-  estimatedLon = realLon;
+  estimatedLat = trustedLat;
+  estimatedLon = trustedLon;
 
   fallbackStart = Date.now();
   lastEstimateTime = Date.now();
+
+  $("usedCoords").textContent =
+    estimatedLat.toFixed(6) + ", " +
+    estimatedLon.toFixed(6);
 
   $("status").textContent =
     "Fallback تجريبي";
@@ -408,10 +443,10 @@ $("reset").onclick = function(){
   simulateLoss = false;
   fallbackStart = null;
 
-  if(realLat !== null){
+  if(trustedLat !== null){
 
-    estimatedLat = realLat;
-    estimatedLon = realLon;
+    estimatedLat = trustedLat;
+    estimatedLon = trustedLon;
 
     $("usedCoords").textContent =
       estimatedLat.toFixed(6) + ", " +
