@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GPS Fallback</title>
+<style>
+body{
+  margin:0;
+  padding:20px;
+  font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+  background:#111;
+  color:white;
+}
+h1{text-align:center}
+.card{
+  background:#222;
+  padding:18px;
+  border-radius:18px;
+  margin:12px 0;
+}
+.row{
+  display:flex;
+  justify-content:space-between;
+  margin:12px 0;
+}
+button{
+  width:100%;
+  padding:17px;
+  margin-top:12px;
+  border:0;
+  border-radius:15px;
+  font-size:18px;
+  font-weight:bold;
+}
+#start{background:#30d158}
+#motion{background:#0a84ff;color:white}
+#status{color:#ffd60a}
+#coords{font-size:14px;color:#bbb}
+</style>
+</head>
+
+<body>
+
+<h1>GPS Fallback</h1>
+
+<div class="card">
+  <div class="row">
+    <span>الحالة</span>
+    <strong id="status">جاهز</strong>
+  </div>
+
+  <div class="row">
+    <span>دقة GPS</span>
+    <strong id="accuracy">—</strong>
+  </div>
+
+  <div class="row">
+    <span>السرعة</span>
+    <strong id="speed">—</strong>
+  </div>
+
+  <div class="row">
+    <span>الاتجاه</span>
+    <strong id="heading">—</strong>
+  </div>
+
+  <div class="row">
+    <span>الثقة</span>
+    <strong id="confidence">100%</strong>
+  </div>
+</div>
+
+<button id="start">تشغيل GPS</button>
+<button id="motion">تشغيل حساسات الحركة</button>
+
+<div class="card">
+  <strong>الموقع الحالي</strong>
+  <p id="coords">لم يتم تحديد الموقع بعد</p>
+</div>
+
+<script>
+
+const statusEl=document.getElementById("status");
+const accuracyEl=document.getElementById("accuracy");
+const speedEl=document.getElementById("speed");
+const headingEl=document.getElementById("heading");
+const coordsEl=document.getElementById("coords");
+const confidenceEl=document.getElementById("confidence");
+
+document.getElementById("start").onclick=function(){
+
+ if(!navigator.geolocation){
+   statusEl.textContent="GPS غير مدعوم";
+   return;
+ }
+
+ statusEl.textContent="جاري البحث عن GPS...";
+
+ navigator.geolocation.watchPosition(
+
+ function(position){
+
+   const c=position.coords;
+
+   coordsEl.textContent=
+     c.latitude.toFixed(6)+", "+c.longitude.toFixed(6);
+
+   accuracyEl.textContent=
+     Math.round(c.accuracy)+" متر";
+
+   if(c.speed!==null){
+     speedEl.textContent=
+       Math.round(c.speed*3.6)+" كم/س";
+   }
+
+   if(c.heading!==null){
+     headingEl.textContent=
+       Math.round(c.heading)+"°";
+   }
+
+   if(c.accuracy<=30){
+     statusEl.textContent="GPS موثوق";
+     statusEl.style.color="#30d158";
+
+     let confidence=
+       Math.max(70,Math.round(100-c.accuracy));
+
+     confidenceEl.textContent=
+       confidence+"%";
+
+   }else{
+
+     statusEl.textContent="GPS ضعيف — Fallback";
+     statusEl.style.color="#ff453a";
+
+     confidenceEl.textContent="50%";
+   }
+
+ },
+
+ function(error){
+   statusEl.textContent="تعذر الوصول إلى GPS";
+   statusEl.style.color="#ff453a";
+ },
+
+ {
+   enableHighAccuracy:true,
+   maximumAge:0,
+   timeout:10000
+ });
+
+};
+
+document.getElementById("motion").onclick=async function(){
+
+ try{
+
+   if(typeof DeviceMotionEvent.requestPermission==="function"){
+
+     const permission=
+       await DeviceMotionEvent.requestPermission();
+
+     if(permission!=="granted"){
+       alert("لم يتم السماح بالحساسات");
+       return;
+     }
+   }
+
+   window.addEventListener("devicemotion",function(e){
+
+     const a=e.acceleration;
+
+     if(a){
+       document.getElementById("motion").textContent=
+         "حساسات الحركة تعمل ✓";
+     }
+
+   });
+
+ }catch(e){
+   alert("تعذر تشغيل حساسات الحركة");
+ }
+
+};
+
+</script>
+
+</body>
+</html>
