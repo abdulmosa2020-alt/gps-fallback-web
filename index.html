@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>GPS Fallback v3</title>
+<title>GPS Fallback v4</title>
 
 <style>
 body{
@@ -41,6 +41,7 @@ button{
 
 #start{background:#30d158}
 #motion{background:#0a84ff;color:white}
+#testPoint{background:#bf5af2;color:white}
 #simulate{background:#ff9f0a;color:#111}
 #reset{background:#555;color:white}
 
@@ -99,6 +100,7 @@ button{
 
 <button id="start">تشغيل GPS</button>
 <button id="motion">تشغيل حساسات الحركة</button>
+<button id="testPoint">تحديد نقطة اختبار</button>
 <button id="simulate">محاكاة انقطاع GPS</button>
 <button id="reset">إنهاء المحاكاة</button>
 
@@ -107,7 +109,7 @@ button{
 <strong>الموقع الحقيقي GPS</strong>
 <p id="realCoords" class="small">—</p>
 
-<strong>آخر موقع موثوق</strong>
+<strong>آخر موقع موثوق / اختبار</strong>
 <p id="trustedCoords" class="small">—</p>
 
 <strong>الموقع المستخدم</strong>
@@ -135,7 +137,7 @@ let realLon = null;
 
 let trustedLat = null;
 let trustedLon = null;
-let trustedTime = null;
+let trustedIsTest = false;
 
 let estimatedLat = null;
 let estimatedLon = null;
@@ -249,14 +251,11 @@ $("start").onclick = function(){
           Math.round(c.heading) + "°";
       }
 
-
-      /* حفظ آخر نقطة موثوقة */
-
       if(c.accuracy <= 25){
 
         trustedLat = realLat;
         trustedLon = realLon;
-        trustedTime = Date.now();
+        trustedIsTest = false;
 
         $("trustedState").textContent =
           "محفوظة ✓";
@@ -269,8 +268,6 @@ $("start").onclick = function(){
 
           estimatedLat = trustedLat;
           estimatedLon = trustedLon;
-
-          lastEstimateTime = Date.now();
 
           $("usedCoords").textContent =
             estimatedLat.toFixed(6) + ", " +
@@ -292,7 +289,6 @@ $("start").onclick = function(){
 
           $("status").textContent = "GPS ضعيف";
           $("status").style.color = "#ff9f0a";
-
           $("confidence").textContent = "50%";
         }
       }
@@ -340,7 +336,6 @@ $("motion").onclick = async function(){
         await DeviceMotionEvent.requestPermission();
 
       if(permission !== "granted"){
-
         alert("لم يتم السماح بالحساسات");
         return;
       }
@@ -349,9 +344,7 @@ $("motion").onclick = async function(){
     motionStarted = true;
 
     $("motionState").textContent = "تعمل ✓";
-
-    $("motion").textContent =
-      "حساسات الحركة تعمل ✓";
+    $("motion").textContent = "حساسات الحركة تعمل ✓";
 
     window.addEventListener(
       "devicemotion",
@@ -391,6 +384,53 @@ $("motion").onclick = async function(){
 };
 
 
+/* نقطة اختبار */
+
+$("testPoint").onclick = function(){
+
+  let lat;
+  let lon;
+
+  if(realLat !== null && realLon !== null){
+
+    lat = realLat;
+    lon = realLon;
+
+  } else {
+
+    lat = 50.4501;
+    lon = 30.5234;
+  }
+
+  trustedLat = lat;
+  trustedLon = lon;
+  trustedIsTest = true;
+
+  estimatedLat = trustedLat;
+  estimatedLon = trustedLon;
+
+  $("trustedState").textContent =
+    "اختبار فقط";
+
+  $("trustedCoords").textContent =
+    trustedLat.toFixed(6) + ", " +
+    trustedLon.toFixed(6);
+
+  $("usedCoords").textContent =
+    estimatedLat.toFixed(6) + ", " +
+    estimatedLon.toFixed(6);
+
+  $("status").textContent =
+    "تم تحديد نقطة اختبار";
+
+  $("status").style.color =
+    "#bf5af2";
+
+  $("confidence").textContent =
+    "اختبار";
+};
+
+
 /* محاكاة فقدان GPS */
 
 $("simulate").onclick = function(){
@@ -410,7 +450,7 @@ $("simulate").onclick = function(){
   ){
 
     alert(
-      "لا توجد نقطة GPS موثوقة بعد. انتظر حتى تصبح الدقة 25 متر أو أفضل."
+      "لا توجد نقطة بداية. استخدم نقطة موثوقة أو زر تحديد نقطة اختبار."
     );
 
     return;
@@ -429,6 +469,8 @@ $("simulate").onclick = function(){
     estimatedLon.toFixed(6);
 
   $("status").textContent =
+    trustedIsTest ?
+    "Fallback تجريبي - نقطة اختبار" :
     "Fallback تجريبي";
 
   $("status").style.color =
@@ -454,10 +496,10 @@ $("reset").onclick = function(){
   }
 
   $("status").textContent =
-    gpsFix ? "GPS مباشر" : "جاهز";
+    "جاهز";
 
   $("status").style.color =
-    gpsFix ? "#30d158" : "#ffd60a";
+    "#ffd60a";
 
   $("fallbackTime").textContent =
     "0 ثانية";
@@ -473,8 +515,7 @@ setInterval(() => {
 
   if(
     !simulateLoss ||
-    estimatedLat === null ||
-    realLat === null
+    estimatedLat === null
   ) return;
 
   const now = Date.now();
@@ -521,16 +562,27 @@ setInterval(() => {
     estimatedLat.toFixed(6) + ", " +
     estimatedLon.toFixed(6);
 
-  const error =
-    distanceMeters(
-      estimatedLat,
-      estimatedLon,
-      realLat,
-      realLon
-    );
+  if(
+    realLat !== null &&
+    realLon !== null
+  ){
 
-  $("errorDistance").textContent =
-    Math.round(error) + " متر";
+    const error =
+      distanceMeters(
+        estimatedLat,
+        estimatedLon,
+        realLat,
+        realLon
+      );
+
+    $("errorDistance").textContent =
+      Math.round(error) + " متر";
+
+  } else {
+
+    $("errorDistance").textContent =
+      "غير متاح";
+  }
 
   const seconds =
     Math.round(
@@ -539,17 +591,6 @@ setInterval(() => {
 
   $("fallbackTime").textContent =
     seconds + " ثانية";
-
-  const confidence =
-    Math.max(
-      5,
-      100 -
-      Math.round(seconds*0.8) -
-      Math.round(error/4)
-    );
-
-  $("confidence").textContent =
-    confidence + "%";
 
 },500);
 
